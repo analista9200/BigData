@@ -1,0 +1,1 @@
+print ("Python Configurado com Sucesso no VS Code!")

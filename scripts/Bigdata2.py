@@ -201,6 +201,5 @@ for i, v in enumerate(df_pandas["valor_por_tempo"]):
 plt.xticks(rotation=45)
 plt.show()
 
-
 df_pandas = ""
 spark.stop()

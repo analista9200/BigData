@@ -30,16 +30,16 @@ df.printSchema()
 df.createOrReplaceTempView("pedidos")
 
 # ===================================================
-# Total de Pedidos e Ticket Médio
+# Consulta 1: Tempo médio de entrega por cidade (ordenado do menor para o maior)
 # ===================================================
 pedido_cidade = spark.sql("""
     SELECT
         cidade,
         COUNT(*) AS total_pedidos,
-        ROUND(AVG(valor_pedido), 2) AS ticket_medio
+        ROUND(AVG(tempo_entrega_min), 2) AS tempo_medio_min
     FROM pedidos
     GROUP BY cidade
-    ORDER BY ticket_medio DESC
+    ORDER BY tempo_medio_min ASC
 """)
 
 pedido_cidade.show()
@@ -57,29 +57,27 @@ for i, v in enumerate(df_pandas["total_pedidos"]):
 
 # eixo Y 2 (direita)
 ax2 = ax1.twinx()
-ax2.plot(df_pandas["cidade"], df_pandas["ticket_medio"], marker="o")
-ax2.set_ylabel("Ticket Médio")
+ax2.plot(df_pandas["cidade"], df_pandas["tempo_medio_min"], marker="o")
+ax2.set_ylabel("Tempo Médio")
 
-plt.title("Pedidos e Ticket Médio por Cidade")
+plt.title("Total de Pedidos E Tempo Médio de Entrega")
 
-for i, v in enumerate(df_pandas["ticket_medio"]):
+for i, v in enumerate(df_pandas["tempo_medio_min"]):
     plt.text(i, v + 0.5, str(v), ha="center")
     
 plt.xticks(rotation=45)
 plt.show()
 
 # ===================================================
-# Total de Pedidos, Faturamento e Ticket Médio
+# Consulta 2: Cidade com melhor desempenho logístico (menor tempo médio)
 # ===================================================
 faturamento_restaurante = spark.sql("""
     SELECT
-        restaurante,
-        COUNT(*) AS total_pedidos,
-        ROUND(sum(valor_pedido), 2) AS faturamento,
-        ROUND(avg(tempo_entrega_min), 2) AS Tempo_Medio
+        cidade,
+        ROUND(avg(tempo_entrega_min), 2) AS tempo_medio_min
     FROM pedidos
-    GROUP BY restaurante
-    ORDER BY faturamento DESC
+    GROUP BY cidade
+    ORDER BY tempo_medio_min ASC
 """)
 
 faturamento_restaurante.show()
@@ -88,45 +86,30 @@ df_pandas = faturamento_restaurante.toPandas()
 fig, ax1 = plt.subplots()
 
 # eixo Y 1 (barras)
-ax1.bar(df_pandas["restaurante"], df_pandas["total_pedidos"])
-ax1.set_xlabel("Restaurante")
-ax1.set_ylabel("Total de Pedidos")
+ax1.bar(df_pandas["cidade"], df_pandas["tempo_medio_min"])
+ax1.set_xlabel("Cidade")
+ax1.set_ylabel("Desempenho Por Cidade")
 
 
-for i, v in enumerate(df_pandas["total_pedidos"]):
+for i, v in enumerate(df_pandas["tempo_medio_min"]):
     plt.text(i, v + 0.5, str(v), ha="center")
 
-# eixo Y 2
-ax2 = ax1.twinx()
-ax2.plot(df_pandas["restaurante"], df_pandas["faturamento"], marker="o")
-ax2.set_ylabel("Faturamento")
 
-for i, v in enumerate(df_pandas["faturamento"]):
-    plt.text(i, v + 0.5, str(v), ha="center")
-
-# terceiro dado (linha diferente no mesmo eixo 2)
-ax2.plot(df_pandas["restaurante"], df_pandas["Tempo_Medio"], marker="s")
-ax2.set_ylabel("Ticket Médio / Faturamento")
-
-for i, v in enumerate(df_pandas["Tempo_Medio"]):
-    plt.text(i, v + 0.5, str(v), ha="center")
-
-plt.title("Análise de Restaurantes por Faturamento e Tempo Médio")
+plt.title("Melhor Desempenho por Cidade")
 plt.xticks(rotation=45)
 plt.show()
 
 # ===================================================
-# Análise de Pedido Min/Max e Variance!
+# Consulta 3: Correlação entre quantidade de pedidos e tempo médio de entrega
 # ===================================================
 faturamento_min_max = spark.sql("""
     SELECT
-        restaurante,
-        ROUND(min(valor_pedido), 2) AS Pedido_Min,
-        ROUND(max(valor_pedido), 2) AS Pedido_Max,
-        ROUND(max(valor_pedido) / min(valor_pedido), 2) AS Variance
+        cidade,
+        COUNT(*) AS total_pedidos,
+        ROUND(AVG(tempo_entrega_min), 2) AS tempo_medio_min
     FROM pedidos
-    GROUP BY restaurante
-    ORDER BY Pedido_Max DESC
+    GROUP BY cidade
+    ORDER BY total_pedidos DESC
 """)
 
 faturamento_min_max.show()
@@ -135,69 +118,23 @@ df_pandas = faturamento_min_max.toPandas()
 fig, ax1 = plt.subplots()
 
 # eixo Y 1 (barras)
-ax1.bar(df_pandas["restaurante"], df_pandas["Pedido_Min"])
-ax1.set_xlabel("Restaurante")
-ax1.set_ylabel("Mínimo Pedido")
+ax1.bar(df_pandas["cidade"], df_pandas["tempo_medio_min"])
+ax1.set_xlabel("cidade")
+ax1.set_ylabel("Tempo Médio de Entrega")
 
 
-for i, v in enumerate(df_pandas["Pedido_Min"]):
+for i, v in enumerate(df_pandas["tempo_medio_min"]):
     plt.text(i, v + 0.5, str(v), ha="center")
 
 # eixo Y 2
 ax2 = ax1.twinx()
-ax2.plot(df_pandas["restaurante"], df_pandas["Pedido_Max"], marker="o")
-ax2.set_ylabel("Máximo Pedido")
+ax2.plot(df_pandas["cidade"], df_pandas["total_pedidos"], marker="o")
+ax2.set_ylabel("Total de Pedidos")
 
-for i, v in enumerate(df_pandas["Pedido_Max"]):
+for i, v in enumerate(df_pandas["total_pedidos"]):
     plt.text(i, v + 0.5, str(v), ha="center")
 
-# terceiro dado (linha diferente no mesmo eixo 2)
-ax2.plot(df_pandas["restaurante"], df_pandas["Variance"], marker="s")
-ax2.set_ylabel("Variação Min/Max")
-
-for i, v in enumerate(df_pandas["Variance"]):
-    plt.text(i, v + 0.5, str(v), ha="center")
-
-plt.title("Análise de Pedido Min/Max e Variação")
-plt.xticks(rotation=45)
-plt.show()
-
-# ===================================================
-# Relação de Media de Pedido por restaurante e tempo de entrega
-# ===================================================
-Valorporentrega = spark.sql("""
-    SELECT
-        restaurante,
-        ROUND(AVG(valor_pedido), 2) as mediavalorpedido,
-        ROUND(AVG(tempo_entrega_min) / AVG(valor_pedido), 2) AS valor_por_tempo
-    FROM pedidos
-    GROUP BY restaurante
-    ORDER BY valor_por_tempo DESC
-""")
-
-Valorporentrega.show()
-df_pandas = Valorporentrega.toPandas()
-
-fig, ax1 = plt.subplots()
-
-# eixo Y 1 (esquerda)
-ax1.bar(df_pandas["restaurante"], df_pandas["mediavalorpedido"])
-ax1.set_xlabel("Restaurantes")
-ax1.set_ylabel("Média de Valor de Pedido")
-
-for i, v in enumerate(df_pandas["mediavalorpedido"]):
-    plt.text(i, v + 0.5, str(v), ha="center")
-
-# eixo Y 2 (direita)
-ax2 = ax1.twinx()
-ax2.plot(df_pandas["restaurante"], df_pandas["valor_por_tempo"], marker="o")
-ax2.set_ylabel("Tempo por Valor")
-
-plt.title("Media de Valor de Pedido e Relação de Tempo de Entrega")
-
-for i, v in enumerate(df_pandas["valor_por_tempo"]):
-    plt.text(i, v + 0.5, str(v), ha="center")
-    
+plt.title("Correlação entre quantidade de pedidos e Tempo Médio")
 plt.xticks(rotation=45)
 plt.show()
 
